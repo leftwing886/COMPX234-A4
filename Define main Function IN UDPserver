@@ -1,0 +1,34 @@
+#Validate command-line argument (port number).
+#Create and bind a UDP socket to the specified port, with error handling
+#Enter a loop to receive DOWNLOAD requests, validate them, and either send an ERR response or spawn a thread.
+def main():
+    if len(os.sys.argv) != 2:
+        print("Usage: python UDPserver.py <port>")
+        return
+    
+    port = int(os.sys.argv[1])
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        server_socket.bind(('', port))
+        print(f"Server running on port {port}")
+    except Exception as e:
+        print(f"Failed to bind socket: {e}")
+        return
+    
+    while True:
+        request, client_address = server_socket.recvfrom(1024)
+        parts = request.decode().strip().split()
+        
+        if parts[0] != "DOWNLOAD" or len(parts) < 2:
+            continue
+            
+        filename = parts[1]
+        if not os.path.exists(filename):
+            response = f"ERR {filename} NOT_FOUND"
+            server_socket.sendto(response.encode(), client_address)
+        else:
+            threading.Thread(target=handle_file_transmission, args=(filename, client_address[0], client_address[1])).start()
+
+#Ensure the script runs only if executed directly.
+if __name__ == "__main__":
+    main()
