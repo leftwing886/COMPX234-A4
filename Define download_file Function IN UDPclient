@@ -1,0 +1,45 @@
+#Download a single file using the protocol’s DOWNLOAD, FILE, and CLOSE messages.
+#Send DOWNLOAD and handle OK or ERR responses.If OK, extract file size and port, then request chunks in a loop until complete
+#Decode Base64 data, write to file, and send CLOSE with verification.
+
+def download_file(sock, filename, server_address):
+    request = f"DOWNLOAD {filename}"
+    response = send_and_receive(sock, request, server_address)
+    if not response:
+        print(f"Failed to get response for {filename}")
+        return
+    parts = response.split()
+    if parts[0] == "ERR":
+        print(f"Error: {filename} not found")
+        return
+    
+    file_size = int(parts[3])
+    port = int(parts[5])
+    server_address = (server_address[0], port)
+    print(f"Downloading {filename} ({file_size} bytes)")
+    
+    with open(filename, 'wb') as f:
+        bytes_received = 0
+        block_size = 1000
+        while bytes_received < file_size:
+            start = bytes_received
+            end = min(bytes_received + block_size - 1, file_size - 1)
+            request = f"FILE {filename} GET START {start} END {end}"
+            response = send_and_receive(sock, request, server_address)
+            if not response:
+                print(f"Failed to receive data for {filename}")
+                return
+            parts = response.split()
+            if parts[0] == "FILE" and parts[2] == "OK":
+                data = base64.b64decode(parts[8])
+                f.seek(int(parts[4]))
+                f.write(data)
+                bytes_received += len(data)
+                print("*", end="", flush=True)
+    
+    request = f"FILE {filename} CLOSE"
+    response = send_and_receive(sock, request, server_address)
+    if response and response.startswith(f"FILE {filename} CLOSE_OK"):
+        print(f"\n{filename} downloaded successfully")
+    else:
+        print(f"\nFailed to close {filename}")
