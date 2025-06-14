@@ -1,0 +1,35 @@
+#Process command-line arguments, read the file list, and initiate downloads.
+#Validate arguments (hostname, port, file_list).
+#Create a UDP socket and read files.txt with UTF-8 encoding.
+#Iterate over filenames and call download_file.
+def main():
+    if len(os.sys.argv) != 4:
+        print("Usage: python UDPclient.py <hostname> <port> <file_list>")
+        return
+    
+    hostname = os.sys.argv[1]
+    port = int(os.sys.argv[2])
+    file_list = os.sys.argv[3]
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_address = (socket.gethostbyname(hostname), port)
+    
+    try:
+        with open(file_list, 'r', encoding='utf-8') as f:
+            files = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        print(f"File list {file_list} not found")
+        return
+    except UnicodeDecodeError as e:
+        print(f"Error decoding file {file_list}: {e}")
+        return
+    
+    for filename in files:
+        download_file(sock, filename, server_address)
+    
+    sock.close()
+
+#Ensure the script runs only if executed directly.
+
+if __name__ == "__main__":
+    main()
