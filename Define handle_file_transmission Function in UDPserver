@@ -1,0 +1,44 @@
+import socket
+import threading
+import base64
+import os
+import random
+#Handle the data transfer for a single client request in a separate thread, managing file reading and chunked responses.
+
+#Create a new UDP socket and bind it to a random high port (50000-51000) for this client.
+def handle_file_transmission(filename, client_address, client_port):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    port = random.randint(50000, 51000)
+    client_socket.bind(('', port))
+
+#Send an OK response with file size and port number if the file exists, or close if it doesn’t.
+    file_size = os.path.getsize(filename) if os.path.exists(filename) else 0
+    response = f"OK {filename} SIZE {file_size} PORT {port}"
+    client_socket.sendto(response.encode(), (client_address, client_port))
+    
+    if not os.path.exists(filename):
+        client_socket.close()
+        return
+    
+    with open(filename, 'rb') as f:
+        while True:
+            request, addr = client_socket.recvfrom(1024)
+            parts = request.decode().strip().split()
+
+#Process CLOSE requests by sending CLOSE_OK and terminating the thread.
+            if parts[0] == "FILE" and parts[2] == "CLOSE":
+                response = f"FILE {filename} CLOSE_OK"
+                client_socket.sendto(response.encode(), addr)
+                break
+
+#Process GET requests by reading the requested byte range, encoding data in Base64, and sending it back.
+            if parts[0] == "FILE" and parts[2] == "GET":
+                start = int(parts[4])
+                end = int(parts[6])
+                f.seek(start)
+                data = f.read(end - start + 1)
+                base64_data = base64.b64encode(data).decode()
+                response = f"FILE {filename} OK START {start} END {end} DATA {base64_data}"
+                client_socket.sendto(response.encode(), addr)
+    
+    client_socket.close()
