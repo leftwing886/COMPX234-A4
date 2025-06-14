@@ -1,22 +1,21 @@
 import socket
 import base64
-import sys
 import os
-from time import sleep
+
+#Send a message and wait for a response with an initial timeout.
+#On timeout, double the timeout, increment attempts, and retry up to 5 times.
 
 def send_and_receive(sock, message, server_address, initial_timeout=1000, max_attempts=5):
-    """Send a message and wait for a response with exponential backoff."""
     current_timeout = initial_timeout
     attempts = 0
     while attempts < max_attempts:
         try:
             sock.settimeout(current_timeout / 1000)
             sock.sendto(message.encode(), server_address)
-            response, _ = sock.receivefrom(4096)
+            response, _ = sock.recvfrom(4096)
             return response.decode()
         except socket.timeout:
+            print(f"Timeout, retrying... (attempt {attempts + 1}/{max_attempts})")
             attempts += 1
-            print(f"Timeout, attempt {attempts}/{max_attempts}, retrying...")
             current_timeout *= 2
-    raise Exception("Max retransmission attempts reached")
-
+    return None
